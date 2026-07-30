@@ -34,7 +34,7 @@ from datetime import datetime
 
 class ACMOJClient:
     def __init__(self, access_token: str):
-        self.api_base = "https://acm.sjtu.edu.cn/OnlineJudge/api/v1"
+        self.api_base = os.environ.get("OJ_API_BASE", "https://acm.sjtu.edu.cn/OnlineJudge/api/v1")
         self.headers = {
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/x-www-form-urlencoded",
@@ -138,7 +138,17 @@ def main():
         result = client.abort_submission(args.submission_id)
 
     if result:
-        print(json.dumps(result))
+        if os.environ.get("VERDICT_MODE") == "blind" and args.command == "status":
+            status = str(result.get("status", "")).lower()
+            if status in {"pending", "compiling", "judging", "waiting"}:
+                visible = {"status": "pending", "message": "Evaluation in progress. Please check again."}
+            elif status in {"accepted", "success"}:
+                visible = {"status": "accepted", "message": "Accepted."}
+            else:
+                visible = {"status": "failed", "message": "Failed, please try again."}
+            print(json.dumps(visible))
+        else:
+            print(json.dumps(result))
     else:
         # Exit with a non-zero status code to indicate failure to shell scripts
         exit(1)
